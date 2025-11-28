@@ -1,0 +1,154 @@
+---
+import { getTopCryptos } from '../../services/coingecko';
+import "../../styles/global.css";
+
+export async function getStaticPaths() {
+  const cryptos = await getTopCryptos();
+  return cryptos.slice(0, 30).map((coin) => ({
+    params: { id: coin.id },
+  }));
+}
+
+const { id } = Astro.params;
+
+let crypto = null;
+let error = null;
+let historicalData = null;
+
+try {
+  const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}`);
+  if (!res.ok) throw new Error(`Erreur API: ${res.status}`);
+  crypto = await res.json();
+
+  const historyRes = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=30`);
+  if (historyRes.ok) {
+    historicalData = await historyRes.json();
+  }
+} catch (e) {
+  error = e.message;
+}
+---
+
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{crypto ? crypto.name : 'Détails crypto'}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+
+  <body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col p-6 max-w-3xl mx-auto">
+    <header class="mb-8">
+      <h1 class="text-4xl font-extrabold">{crypto ? crypto.name : 'Crypto'}</h1>
+      <p class="text-gray-400 uppercase tracking-widest">{crypto?.symbol || ''}</p>
+    </header>
+
+    {error ? (
+      <p class="text-red-500 bg-red-900 p-4 rounded">Erreur : {error}</p>
+    ) : crypto ? (
+      <article class="flex flex-col gap-8">
+        <div class="flex items-center gap-6">
+          <img src={crypto.image.large} alt={crypto.name} class="w-24 h-24 rounded-full shadow-lg border border-gray-700" />
+          <div>
+            <p class="text-gray-300 prose max-w-none" innerHTML={crypto.description.fr || crypto.description.en || "Pas de description."} />
+          </div>
+        </div>
+
+        <section class="bg-gray-800 rounded-lg p-6 shadow-md">
+          <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">Infos principales</h2>
+          <ul class="space-y-3 text-gray-300 text-lg">
+            <li><strong>Prix actuel :</strong> ${crypto.market_data.current_price.usd.toLocaleString()}</li>
+            <li><strong>Capitalisation boursière :</strong> ${crypto.market_data.market_cap.usd.toLocaleString()}</li>
+            <li>
+              <strong>Variation 24h :</strong>
+              <span class={crypto.market_data.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}>
+                {crypto.market_data.price_change_percentage_24h.toFixed(2)}%
+              </span>
+            </li>
+            <li><strong>Volume 24h :</strong> ${crypto.market_data.total_volume.usd.toLocaleString()}</li>
+          </ul>
+        </section>
+
+        <section class="bg-gray-800 rounded-lg p-6 shadow-md">
+          <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">Graphique des prix (30 derniers jours)</h2>
+
+          <!-- Safe JSON dans attribut data-* -->
+          <div
+            id="chart-wrapper"
+            data-historical-json={JSON.stringify(historicalData.prices).replace(/</g, '\\u003c')}
+          ></div>
+          <canvas id="priceChart"></canvas>
+
+          <script>
+            window.addEventListener('load', () => {
+              const wrapper = document.getElementById('chart-wrapper');
+              if (!wrapper) return;
+
+              const raw = wrapper.getAttribute('data-historical-json');
+              if (!raw) return;
+
+              let prices;
+              try {
+                prices = JSON.parse(raw);
+              } catch (err) {
+                console.error("Erreur de parsing JSON:", err);
+                return;
+              }
+
+              const ctx = document.getElementById('priceChart')?.getContext('2d');
+              if (!ctx || !prices?.length) return;
+
+              const labels = prices.map(([ts]) =>
+                new Date(ts).toLocaleDateString("fr-FR", {
+                  day: "2-digit",
+                  month: "2-digit"
+                })
+              );
+              const dataPoints = prices.map(([, price]) => price);
+
+              new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels,
+                  datasets: [{
+                    label: 'Prix (USD)',
+                    data: dataPoints,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.2,
+                    pointRadius: 0,
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  plugins: {
+                    legend: { display: true },
+                    tooltip: { enabled: true }
+                  },
+                  scales: {
+                    x: { title: { display: true, text: 'Date' } },
+                    y: { title: { display: true, text: 'Prix (USD)' } }
+                  }
+                }
+              });
+            });
+          </script>
+        </section>
+
+        <section class="bg-gray-800 rounded-lg p-6 shadow-md">
+          <h2>Site officiel</h2>
+          <a href={crypto.links.homepage[0]} target="_blank" rel="noopener noreferrer">
+            {crypto.links.homepage[0]}
+          </a>
+        </section>
+      </article>
+    ) : (
+      <p class="text-gray-400">Chargement des données...</p>
+    )}
+
+    <footer class="mt-auto text-center text-gray-500 text-sm pt-8">
+      Données fournies par CoinGecko — Projet démo © 2025
+    </footer>
+  </body>
+</html>
