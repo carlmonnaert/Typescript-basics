@@ -25,8 +25,8 @@ This repository contains two separate applications written in **TypeScript**:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-repo.git
-cd your-repo
+git clone https://github.com/carlmonnaert/Typescript-Display.git
+cd Typescript-display
 ```
 
 ### 2. Install global dependencies
@@ -39,7 +39,7 @@ bun install
 
 ```bash
 cd website
-bun dev
+bun run dev
 ```
 
 ### Start the cryptocurrency API
