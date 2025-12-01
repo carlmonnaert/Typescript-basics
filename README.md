@@ -17,11 +17,11 @@ This repository contains two separate applications written in **TypeScript**:
 <table>
   <tr>
     <td align="center">
-      <p>Main Event</p>
+      <p>Crypto trends</p>
       <img src="./crypt_main.png" alt="Main Poster" width="100%"/>
     </td>
     <td align="center">
-      <p>Closing Event</p>
+      <p>Details on crypto</p>
       <img src="./crypto_close.png" alt="Closing Poster" width="100%"/>
     </td>
   </tr>
